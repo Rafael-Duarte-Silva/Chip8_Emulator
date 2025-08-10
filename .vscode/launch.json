@@ -8,7 +8,7 @@
       "program": "${fileDirname}/${fileBasenameNoExtension}",
       "preLaunchTask": "C/C++: gcc build SDL2 file",
       "args": [
-        "${workspaceFolder}/programs/IBM Logo.ch8"
+        "${workspaceFolder}/programs/Landing.ch8"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

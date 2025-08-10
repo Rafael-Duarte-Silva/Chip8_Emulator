@@ -243,6 +243,8 @@ void handle_input(chip8_t *chip8){
 }
 
 void emulate_instruction(chip8_t *chip8, const config_t config){
+    bool carry;
+
     chip8->inst.opcode = (chip8->ram[chip8->PC] << 8) | chip8->ram[chip8->PC+1]; //16bits
     chip8->PC += 2; //read 2 byte for time or 16 bits
 
@@ -261,20 +263,127 @@ void emulate_instruction(chip8_t *chip8, const config_t config){
                 memset(&chip8->display[0], false, sizeof chip8->display);
                 chip8->draw = true;
                 printf("Clear screen\n");
+            } else if(chip8->inst.NN == 0xEE){ //subroutines
+                chip8->PC = *--chip8->stack_ptr;
             }
             break;
+
         case 0x01: //jump
             chip8->PC = chip8->inst.NNN;
             break;
+
+        case 0x02: //subroutines
+            *chip8->stack_ptr++ = chip8->PC;  
+            chip8->PC = chip8->inst.NNN;
+            break;
+
+        case 0x03: //jump if
+            if(chip8->V[chip8->inst.X] == chip8->inst.NN){
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0x04: //jump not if
+            if(chip8->V[chip8->inst.X] != chip8->inst.NN){
+                chip8->PC += 2;
+            }
+            break;
+
+        case 0x05: //jump if
+            if (chip8->inst.N != 0) break; //invalid opcode
+
+            if(chip8->V[chip8->inst.X] == chip8->V[chip8->inst.Y]){
+                chip8->PC += 2;
+            }
+            break;
+
         case 0x06: //set register(V)
             chip8->V[chip8->inst.X] = chip8->inst.NN;
             break;
+
         case 0x07: //add register(V)
             chip8->V[chip8->inst.X] += chip8->inst.NN;
             break;
+
+        case 0x08: //math
+            switch (chip8->inst.N) //last 4 bits
+            {
+                case 0x00:
+                    chip8->V[chip8->inst.X] = chip8->V[chip8->inst.Y];
+                    break;
+
+                case 0x01:
+                    chip8->V[chip8->inst.X] |= chip8->V[chip8->inst.Y];
+                    break;
+
+                case 0x02:
+                    chip8->V[chip8->inst.X] &= chip8->V[chip8->inst.Y];
+                    break;
+
+                case 0x03:
+                    chip8->V[chip8->inst.X] ^= chip8->V[chip8->inst.Y];
+                    break;
+                    
+                case 0x04:
+                    carry = ((uint16_t)(chip8->V[chip8->inst.X] + chip8->V[chip8->inst.Y]) > 255);
+
+                    chip8->V[chip8->inst.X] += chip8->V[chip8->inst.Y];
+                    chip8->V[0xF] = carry;
+                    break;
+
+                case 0x05:
+                    carry = chip8->V[chip8->inst.X] >= chip8->V[chip8->inst.Y];
+
+                    chip8->V[chip8->inst.X] -= chip8->V[chip8->inst.Y];
+                    chip8->V[0xF] = carry;
+                    break;
+
+                case 0x06:
+                    carry = chip8->V[chip8->inst.Y] & 1;
+
+                    chip8->V[chip8->inst.X] >>= chip8->V[chip8->inst.Y];
+                    chip8->V[0xF] = carry;
+                    break;
+
+                case 0x07:
+                    carry = chip8->V[chip8->inst.X] <= chip8->V[chip8->inst.Y];
+
+                    chip8->V[chip8->inst.X] = chip8->V[chip8->inst.Y] - chip8->V[chip8->inst.X];
+                    chip8->V[0xF] = carry;
+                    break;
+
+                case 0x0E:
+                    carry = (chip8->V[chip8->inst.Y] & 0x80) >> 7;
+
+                    chip8->V[chip8->inst.X] <<= chip8->V[chip8->inst.Y];
+                    chip8->V[0xF] = carry;
+                    break;
+                
+                default:
+                    break;
+            }
+            break;
+
+        case 0x09: //jump if
+            if (chip8->inst.N != 0) break; //invalid opcode
+
+            if(chip8->V[chip8->inst.X] != chip8->V[chip8->inst.Y]){
+                chip8->PC += 2;
+            }
+            break;
+
         case 0x0A: //set register(I)
             chip8->I = chip8->inst.NNN;
             break;
+
+        case 0x0B: //set register(PC)
+            chip8->PC = chip8->V[0] + chip8->inst.NNN;
+            break;
+
+        case 0x0C: //set register(V)
+            chip8->V[chip8->inst.X] = (rand() % 256) & chip8->inst.NN;
+            break;
+
         case 0x0D: //draw screen
             uint8_t X_coord = chip8->V[chip8->inst.X] % config.window_width;
             uint8_t Y_coord = chip8->V[chip8->inst.Y] % config.window_height;
@@ -304,8 +413,65 @@ void emulate_instruction(chip8_t *chip8, const config_t config){
             chip8->draw = true;
             break;
 
+        case 0x0F:
+                switch (chip8->inst.NN) {
+                    case 0x07: //set register(V)
+                        chip8->V[chip8->inst.X] = chip8->delay_timer;
+                        break;
+
+                    case 0x15: //set delay_timer
+                        chip8->delay_timer = chip8->V[chip8->inst.X];
+                        break;
+
+                    case 0x18: //set sound_timer
+                        chip8->sound_timer = chip8->V[chip8->inst.X];
+                        break;
+
+                    case 0x1E: //set register(I)
+                        chip8->I += chip8->V[chip8->inst.X];
+                        break;
+
+                    case 0x29: //set register(I)
+                        chip8->I = chip8->V[chip8->inst.X] * 5;
+                        break;
+
+                    case 0x33:
+                        uint8_t bcd = chip8->V[chip8->inst.X]; 
+                        chip8->ram[chip8->I+2] = bcd % 10;
+                        bcd /= 10;
+                        chip8->ram[chip8->I+1] = bcd % 10;
+                        bcd /= 10;
+                        chip8->ram[chip8->I] = bcd;
+                        break;
+
+                    case 0x55:
+                        for (uint8_t i = 0; i <= chip8->inst.X; i++)  {
+                            chip8->ram[chip8->I++] = chip8->V[i];
+                        }
+                        break;
+
+                    case 0x65:
+                        for (uint8_t i = 0; i <= chip8->inst.X; i++) {
+                            chip8->V[i] = chip8->ram[chip8->I++];
+                        }
+                        break;
+
+                    default: //opcode invalid
+                        break;
+                }
+            break;
+
         default: //opcode invalid
             break;
+    }
+}
+
+void update_timers(const sdl_t sdl, chip8_t *chip8) {
+    if (chip8->delay_timer > 0) 
+        chip8->delay_timer--;
+
+    if (chip8->sound_timer > 0) {
+        chip8->sound_timer--;
     }
 }
 
@@ -348,7 +514,8 @@ int main(int argc, char *argv[]) {
             update_screen(sdl, config, &chip8);
             chip8.draw = false;
         }
-        
+
+        update_timers(sdl, &chip8);
     }
 
     final_cleanup(sdl);
