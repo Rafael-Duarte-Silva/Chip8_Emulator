@@ -5,10 +5,10 @@
       "name": "run chip8",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${fileDirname}/${fileBasenameNoExtension}",
-      "preLaunchTask": "C/C++: gcc build SDL2 file",
+      "program": "${workspaceFolder}/main",
+      "preLaunchTask": "make build chip8",
       "args": [
-        "${workspaceFolder}/programs/Pong_(1_player).ch8"
+        "${workspaceFolder}/src/programs/Pong_(1_player).ch8"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

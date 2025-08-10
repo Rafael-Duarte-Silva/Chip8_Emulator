@@ -1,6 +1,8 @@
 {
-    "files.associations": {
-        "cstdlib": "c",
-        "sdl.h": "c"
-    }
+  "files.associations": {
+    "cstdlib": "c",
+    "sdl.h": "c",
+    "*.h": "c",
+    "*.c": "c"
+  }
 }
