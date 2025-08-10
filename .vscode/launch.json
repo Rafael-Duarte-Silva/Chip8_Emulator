@@ -8,7 +8,7 @@
       "program": "${fileDirname}/${fileBasenameNoExtension}",
       "preLaunchTask": "C/C++: gcc build SDL2 file",
       "args": [
-        "${workspaceFolder}/programs/Landing.ch8"
+        "${workspaceFolder}/programs/Pong_(1_player).ch8"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

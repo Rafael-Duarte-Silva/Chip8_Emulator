@@ -45,6 +45,7 @@ typedef struct {
     uint16_t I; 
     uint8_t delay_timer;
     uint8_t sound_timer;
+    bool keypad[16];
     const char *rom_name; 
     instruction_t inst;
     bool draw;
@@ -202,9 +203,10 @@ void update_screen(const sdl_t sdl, const config_t config, chip8_t *chip8){
 
         if (chip8->display[i]) {
             draw_pixel(i, config.fg_color, rect, sdl, config, chip8);
-        } else {
-            draw_pixel(i, config.bg_color, rect, sdl, config, chip8);
+            continue;
         }
+
+        draw_pixel(i, config.bg_color, rect, sdl, config, chip8);
     }
 
     SDL_RenderPresent(sdl.renderer);
@@ -219,6 +221,7 @@ void handle_input(chip8_t *chip8){
             case SDL_QUIT:
                 chip8->state = QUIT;
                 return;
+
             case SDL_KEYDOWN:
                 switch (event.key.keysym.sym)
                 {
@@ -227,12 +230,63 @@ void handle_input(chip8_t *chip8){
                         return;
 
                     case SDLK_SPACE:
-                        puts("PAUSED");
-                        chip8->state = PAUSED;
+                        if(chip8->state == RUNNING){
+                            chip8->state = PAUSED;
+                            puts("PAUSED");
+                            return;
+                        }
+
+                        chip8->state = RUNNING;
                         return;
+
+                    case SDLK_1: chip8->keypad[0x1] = true; break;
+                    case SDLK_2: chip8->keypad[0x2] = true; break;
+                    case SDLK_3: chip8->keypad[0x3] = true; break;
+                    case SDLK_4: chip8->keypad[0xC] = true; break;
+
+                    case SDLK_q: chip8->keypad[0x4] = true; break;
+                    case SDLK_w: chip8->keypad[0x5] = true; break;
+                    case SDLK_e: chip8->keypad[0x6] = true; break;
+                    case SDLK_r: chip8->keypad[0xD] = true; break;
+
+                    case SDLK_a: chip8->keypad[0x7] = true; break;
+                    case SDLK_s: chip8->keypad[0x8] = true; break;
+                    case SDLK_d: chip8->keypad[0x9] = true; break;
+                    case SDLK_f: chip8->keypad[0xE] = true; break;
+
+                    case SDLK_z: chip8->keypad[0xA] = true; break;
+                    case SDLK_x: chip8->keypad[0x0] = true; break;
+                    case SDLK_c: chip8->keypad[0xB] = true; break;
+                    case SDLK_v: chip8->keypad[0xF] = true; break;
                         
                     default:
                         break;
+                }
+                break;
+
+            case SDL_KEYUP:
+                switch (event.key.keysym.sym) {
+                    case SDLK_1: chip8->keypad[0x1] = false; break;
+                    case SDLK_2: chip8->keypad[0x2] = false; break;
+                    case SDLK_3: chip8->keypad[0x3] = false; break;
+                    case SDLK_4: chip8->keypad[0xC] = false; break;
+
+                    case SDLK_q: chip8->keypad[0x4] = false; break;
+                    case SDLK_w: chip8->keypad[0x5] = false; break;
+                    case SDLK_e: chip8->keypad[0x6] = false; break;
+                    case SDLK_r: chip8->keypad[0xD] = false; break;
+
+                    case SDLK_a: chip8->keypad[0x7] = false; break;
+                    case SDLK_s: chip8->keypad[0x8] = false; break;
+                    case SDLK_d: chip8->keypad[0x9] = false; break;
+                    case SDLK_f: chip8->keypad[0xE] = false; break;
+
+                    case SDLK_z: chip8->keypad[0xA] = false; break;
+                    case SDLK_x: chip8->keypad[0x0] = false; break;
+                    case SDLK_c: chip8->keypad[0xB] = false; break;
+                    case SDLK_v: chip8->keypad[0xF] = false; break;
+
+                    default: break;
                 }
                 break;
 
@@ -263,8 +317,12 @@ void emulate_instruction(chip8_t *chip8, const config_t config){
                 memset(&chip8->display[0], false, sizeof chip8->display);
                 chip8->draw = true;
                 printf("Clear screen\n");
-            } else if(chip8->inst.NN == 0xEE){ //subroutines
+                break;
+            } 
+            
+            if(chip8->inst.NN == 0xEE){ //subroutines
                 chip8->PC = *--chip8->stack_ptr;
+                break;
             }
             break;
 
@@ -413,10 +471,49 @@ void emulate_instruction(chip8_t *chip8, const config_t config){
             chip8->draw = true;
             break;
 
+        case 0x0E: //set register(PC)
+            if (chip8->inst.NN == 0x9E) {
+                if (chip8->keypad[chip8->V[chip8->inst.X]]) chip8->PC += 2;
+                break;
+            } 
+            
+            if (chip8->inst.NN == 0xA1) {
+                if (!chip8->keypad[chip8->V[chip8->inst.X]]) chip8->PC += 2;
+                break;
+            }
+            break;
+
         case 0x0F:
                 switch (chip8->inst.NN) {
                     case 0x07: //set register(V)
                         chip8->V[chip8->inst.X] = chip8->delay_timer;
+                        break;
+
+                    case 0x0A: //set register(PC) or register(V)
+                        static bool any_key_pressed = false;
+                        static uint8_t key = 0xFF;
+
+                        for (uint8_t i = 0; key == 0xFF && i < sizeof chip8->keypad; i++){
+                            if (chip8->keypad[i]) {
+                                key = i;
+                                any_key_pressed = true;
+                                break;
+                            }
+                        }
+
+                        if (!any_key_pressed){
+                            chip8->PC -= 2;
+                            break;
+                        }
+
+                        if (chip8->keypad[key]){
+                            chip8->PC -= 2;
+                            break;
+                        }
+                            
+                        chip8->V[chip8->inst.X] = key;
+                        key = 0xFF;
+                        any_key_pressed = false;
                         break;
 
                     case 0x15: //set delay_timer
