@@ -15,6 +15,7 @@ typedef struct {
     uint32_t fg_color;
     uint32_t bg_color;
     uint32_t scale_factor;
+    uint32_t insts_per_second; 
 } config_t;
 
 typedef struct {
@@ -90,6 +91,7 @@ bool set_config_from_args(config_t *config, const int argc, char **argv){
         .fg_color = 0xFFFFFFFF,
         .bg_color = 0x000000FF,
         .scale_factor = 20,
+        .insts_per_second = 600,
     };
 
     for(int i = 0; i < argc; i++){
@@ -330,9 +332,17 @@ int main(int argc, char *argv[]) {
 
         if(chip8.state == PAUSED) continue;
 
-        emulate_instruction(&chip8, config);
+        const uint64_t start_frame_time = SDL_GetPerformanceCounter();
+        for (uint32_t i = 0; i < config.insts_per_second / 60; i++) {
+            emulate_instruction(&chip8, config);
 
-        SDL_Delay(16);
+            if (chip8.inst.opcode >> 12 == 0xD) break;
+        }
+        const uint64_t end_frame_time = SDL_GetPerformanceCounter();
+
+        const double time_elapsed = (double)((end_frame_time - start_frame_time) * 1000) / SDL_GetPerformanceFrequency();
+
+        SDL_Delay(16.67f > time_elapsed ? 16.67f - time_elapsed : 0);
 
         if(chip8.draw){
             update_screen(sdl, config, &chip8);
