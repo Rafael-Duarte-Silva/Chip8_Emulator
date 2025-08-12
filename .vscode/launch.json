@@ -5,7 +5,7 @@
       "name": "run chip8",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/main",
+      "program": "${workspaceFolder}/chip8",
       "preLaunchTask": "make build chip8",
       "args": [
         "${workspaceFolder}/src/programs/Pong_(1_player).ch8"
