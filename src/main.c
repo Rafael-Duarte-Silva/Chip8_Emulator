@@ -24,7 +24,10 @@ int main(int argc, char *argv[]) {
     while(chip8.state != QUIT){
         handle_input(&chip8);
 
-        if(chip8.state == PAUSED) continue;
+        if(chip8.state == PAUSED) {
+            SDL_Delay(41.5f); // ≈ 24 fps
+            continue;
+        };
 
         const uint64_t start_frame_time = SDL_GetPerformanceCounter();
         for (uint32_t i = 0; i < config.insts_per_second / 60; i++) {
